@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [svelte(), glsl({minify: true})],
   build: {
     outDir: "docs"
-  }
+  },
+  base: "/gradmap"
   
 })
