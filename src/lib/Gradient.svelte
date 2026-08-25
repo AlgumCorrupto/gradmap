@@ -1,7 +1,7 @@
 <script lang="ts">
-    import type { Stop } from "./types";
+    import type { Stop, Color } from "./gradlib";
+    import { render_gradient }  from "./gradlib";
 
-    type Color = [number, number, number, number];
     type Props = {
         stops?: Map<number, Stop>;
         onGradientChange: (image: ImageData) => void;
@@ -31,83 +31,8 @@
     let is_dragging_handle: boolean = $state(false);
 
     let gradient_image: ImageData | undefined = undefined;
-    function lerp(a: number, b: number, x:number): number {
-        return (1 - x) * a + x * b;
-    }
 
-    function invLerp(a: number, b: number, x: number) {
-        return (x - a) / (b - a);
-    }
 
-    function clamp01(x: number): number {
-        return Math.max(0, Math.min(1, x));
-    }
-
-    let intp: (start: number, end: number, emt: number) => number = invLerp;
-
-    function left_shoulder(x: number, center: number, right: number): number {
-        return clamp01(intp(right, center, x));
-    }
-
-    function right_shoulder(x: number, left: number, center: number): number {
-        return clamp01(intp(left, center, x));
-    }
-
-    function triangle(x: number, left: number, center: number, right: number): number {
-        if (x < center)
-            return clamp01(intp(left, center, x));
-
-        return clamp01(intp(right, center, x));
-    }
-
-    function left_shoulder_c(
-        accumulator: Color,
-        pixel: number,
-        stop: Stop,
-        next: Stop
-    ): Color {
-        const w = left_shoulder(pixel / 255, stop.at, next.at);
-
-        return [
-            accumulator[0] + stop.color[0] * w,
-            accumulator[1] + stop.color[1] * w,
-            accumulator[2] + stop.color[2] * w,
-            accumulator[3] + stop.color[3] * w,
-        ];
-    }
-
-    function triangle_c(
-        accumulator: Color,
-        pixel: number,
-        prev: Stop,
-        stop: Stop,
-        next: Stop
-    ): Color {
-        const w = triangle(pixel / 255, prev.at, stop.at, next.at);
-
-        return [
-            accumulator[0] + stop.color[0] * w,
-            accumulator[1] + stop.color[1] * w,
-            accumulator[2] + stop.color[2] * w,
-            accumulator[3] + stop.color[3] * w,
-        ];
-    }
-
-    function right_shoulder_c(
-        accumulator: Color,
-        pixel: number,
-        prev: Stop,
-        stop: Stop
-    ): Color {
-        const w = right_shoulder(pixel / 255, prev.at, stop.at);
-
-        return [
-            accumulator[0] + stop.color[0] * w,
-            accumulator[1] + stop.color[1] * w,
-            accumulator[2] + stop.color[2] * w,
-            accumulator[3] + stop.color[3] * w,
-        ];
-    }
 
     let gradient_repr: HTMLDivElement;
 
@@ -127,47 +52,6 @@
         onGradientChange(gradient_image);
     });
 
-    function render_gradient(stps: Stop[]): ImageData {
-        const data = new Uint8ClampedArray(256 * 4);
-    
-        const last = stps.length - 1;
-    
-        for (let x = 0; x < 256; x++) {
-            let accumulator: Color = [0, 0, 0, 0];
-        
-            accumulator = left_shoulder_c(
-                accumulator,
-                x,
-                stps[0],
-                stps[1]
-            );
-        
-            for (let i = 1; i < last; i++) {
-                accumulator = triangle_c(
-                    accumulator,
-                    x,
-                    stps[i - 1],
-                    stps[i],
-                    stps[i + 1]
-                );
-            }
-        
-            accumulator = right_shoulder_c(
-                accumulator,
-                x,
-                stps[last - 1],
-                stps[last]
-            );
-        
-            const o = x * 4;
-            data[o + 0] = accumulator[0];
-            data[o + 1] = accumulator[1];
-            data[o + 2] = accumulator[2];
-            data[o + 3] = accumulator[3];
-        }
-    
-        return new ImageData(data, 256, 1);
-    }
 
     // svelte-ignore state_referenced_locally
     let stop_counter = $state(stops!.size)
